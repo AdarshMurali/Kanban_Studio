@@ -27,13 +27,13 @@ jobs:
     # 4️⃣ Run container (for testing)
     - name: Run container
       run: |
-        docker run -d -p 8080:8080 --name test-container my-image-name:${{ steps.vars.outputs.TAG }}
-        sleep 10
+        docker run -d -p 8000:8000 --name test-container my-image-name:${{ steps.vars.outputs.TAG }}
+        sleep 15
 
     # 5️⃣ Basic health check (example)
     - name: Test application
       run: |
-        curl -f http://localhost:8080 || (echo "App failed" && exit 1)
+        curl -f http://localhost:8000/health || (echo "App failed health check" && exit 1)
 
     # 6️⃣ Stop container
     - name: Stop container
