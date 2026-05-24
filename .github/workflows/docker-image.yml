@@ -22,12 +22,12 @@ jobs:
 
     # 3️⃣ Build Docker image
     - name: Build Docker image
-      run: docker build -t my-image-name:${{ steps.vars.outputs.TAG }} .
+      run: docker build -t Kanban-Studio:${{ steps.vars.outputs.TAG }} .
 
     # 4️⃣ Run container (for testing)
     - name: Run container
       run: |
-        docker run -d -p 8000:8000 --name test-container my-image-name:${{ steps.vars.outputs.TAG }}
+        docker run -d -p 8000:8000 --name test-container Kanban-Studio:${{ steps.vars.outputs.TAG }}
         sleep 15
 
     # 5️⃣ Basic health check (example)
@@ -50,9 +50,9 @@ jobs:
     # 8️⃣ Tag image for Docker Hub
     - name: Tag image
       if: github.event_name == 'push'
-      run: docker tag my-image-name:${{ steps.vars.outputs.TAG }} ${{ secrets.DOCKER_USERNAME }}/my-image-name:${{ steps.vars.outputs.TAG }}
+      run: docker tag Kanban-Studio:${{ steps.vars.outputs.TAG }} ${{ secrets.DOCKER_USERNAME }}/Kanban-Studio:${{ steps.vars.outputs.TAG }}
 
     # 9️⃣ Push image
     - name: Push image
       if: github.event_name == 'push'
-      run: docker push ${{ secrets.DOCKER_USERNAME }}/my-image-name:${{ steps.vars.outputs.TAG }}
+      run: docker push ${{ secrets.DOCKER_USERNAME }}/Kanban-Studio:${{ steps.vars.outputs.TAG }}
