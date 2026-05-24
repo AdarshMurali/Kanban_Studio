@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from app.ai import apply_actions, build_structured_messages, call_openrouter, parse_structured_output
 from app.database import fetch_board, get_or_create_user
 from app.dependencies import get_db, get_username
+from app.config import DEFAULT_PASSWORD, DEFAULT_USER
 from app.models import ChatRequest, ChatResponse
 
 router = APIRouter()
@@ -16,7 +17,7 @@ def chat(
     username: str = Depends(get_username),
     conn: sqlite3.Connection = Depends(get_db),
 ) -> ChatResponse:
-    user_id = get_or_create_user(conn, username)
+    user_id = get_or_create_user(conn, username, DEFAULT_PASSWORD if username == DEFAULT_USER else None)
     board = fetch_board(conn, user_id)
     messages = build_structured_messages(board, payload.history, payload.message)
     content, model = call_openrouter(messages)

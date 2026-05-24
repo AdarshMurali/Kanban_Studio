@@ -11,8 +11,10 @@ OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/ap
 OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b")
 OPENROUTER_TEMPERATURE = float(os.getenv("OPENROUTER_TEMPERATURE", "0"))
 
-# Database configuration
-DEFAULT_USER = "user"
+# Security configuration
+import bcrypt
+DEFAULT_USER = os.getenv("DEFAULT_USER", "user")
+DEFAULT_PASSWORD = os.getenv("DEFAULT_PASSWORD", "password")  # For demo only - should be changed in production
 DEFAULT_BOARD_TITLE = "My Board"
 
 # Initial seed data for new boards

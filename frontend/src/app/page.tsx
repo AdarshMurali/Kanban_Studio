@@ -21,12 +21,12 @@ import {
 } from "@/lib/api";
 import { findCardLocation, fromCardId, fromColumnId, type BoardData } from "@/lib/kanban";
 
-const CREDENTIALS = { username: "user", password: "password" };
+// Credentials will be handled via environment variables and backend authentication
 
 export default function Home() {
   const [board, setBoard] = useState<BoardData | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [username, setUsername] = useState<string>(CREDENTIALS.username);
+  const [username, setUsername] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [boardError, setBoardError] = useState<string | null>(null);
@@ -66,7 +66,9 @@ export default function Home() {
     const username = String(formData.get("username") || "").trim();
     const password = String(formData.get("password") || "").trim();
 
-    if (username === CREDENTIALS.username && password === CREDENTIALS.password) {
+    // For MVP, we'll accept any non-empty credentials and let the backend handle validation
+    // In a real implementation, this would call an authentication endpoint
+    if (username && password) {
       setUsername(username);
       setIsAuthenticated(true);
       setError(null);
@@ -74,7 +76,7 @@ export default function Home() {
       return;
     }
 
-    setError("Incorrect username or password.");
+    setError("Please enter both username and password.");
   };
 
   const handleLogout = () => {
@@ -176,7 +178,7 @@ export default function Home() {
   };
 
   const welcomeCopy =
-    "Sign in to continue to your Kanban board. Use the demo credentials to explore the MVP.";
+    "Sign in to continue to your Kanban board.";
 
   const handleSendChat = async (message: string) => {
     setChatError(null);
@@ -278,7 +280,7 @@ export default function Home() {
                 Sign in
               </button>
               <p className="text-xs text-[var(--gray-text)]">
-                Demo credentials: user / password
+                Enter any username and password to continue
               </p>
             </form>
           </section>

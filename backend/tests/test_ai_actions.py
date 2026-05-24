@@ -3,6 +3,7 @@ from pathlib import Path
 
 from app.ai import apply_actions, parse_structured_output
 from app.database import connect_db, fetch_board, get_or_create_user, init_db
+from app.config import DEFAULT_PASSWORD, DEFAULT_USER
 from app.models import CreateCardAction, DeleteCardAction, MoveCardAction, UpdateCardAction
 
 
@@ -34,7 +35,7 @@ def test_apply_actions_updates_board(tmp_path: Path) -> None:
     init_db()
 
     conn = connect_db()
-    user_id = get_or_create_user(conn, "user")
+    user_id = get_or_create_user(conn, "user", DEFAULT_PASSWORD)
     board = fetch_board(conn, user_id)
 
     first_column = board["columns"][0]

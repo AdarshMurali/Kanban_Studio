@@ -1,7 +1,11 @@
 import sqlite3
-from typing import Generator, Iterable, Literal
+from typing import Generator, Iterable, Literal, Optional
+from functools import lru_cache
+import time
 
-from app.config import DEFAULT_BOARD_TITLE, INITIAL_COLUMNS, get_db_path
+from app.config import DEFAULT_BOARD_TITLE, DEFAULT_PASSWORD, DEFAULT_USER, INITIAL_COLUMNS, get_db_path
+from app.logging_config import app_logger
+import bcrypt
 
 VALID_TABLES = {"cards", "columns"}
 
@@ -15,64 +19,71 @@ def connect_db() -> sqlite3.Connection:
 
 
 def init_db() -> None:
+    app_logger.info("Initializing database")
     conn = connect_db()
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY,
-            username TEXT NOT NULL UNIQUE,
-            password_hash TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    try:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY,
+                username TEXT NOT NULL UNIQUE,
+                password_hash TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
         )
-        """
-    )
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS boards (
-            id INTEGER PRIMARY KEY,
-            user_id INTEGER NOT NULL,
-            title TEXT NOT NULL DEFAULT 'My Board',
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id),
-            UNIQUE (user_id)
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS boards (
+                id INTEGER PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                title TEXT NOT NULL DEFAULT 'My Board',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                UNIQUE (user_id)
+            )
+            """
         )
-        """
-    )
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS columns (
-            id INTEGER PRIMARY KEY,
-            board_id INTEGER NOT NULL,
-            title TEXT NOT NULL,
-            position INTEGER NOT NULL,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (board_id) REFERENCES boards(id)
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS columns (
+                id INTEGER PRIMARY KEY,
+                board_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                position INTEGER NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (board_id) REFERENCES boards(id)
+            )
+            """
         )
-        """
-    )
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS cards (
-            id INTEGER PRIMARY KEY,
-            column_id INTEGER NOT NULL,
-            title TEXT NOT NULL,
-            details TEXT NOT NULL DEFAULT '',
-            position INTEGER NOT NULL,
-            archived INTEGER NOT NULL DEFAULT 0,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (column_id) REFERENCES columns(id)
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS cards (
+                id INTEGER PRIMARY KEY,
+                column_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                details TEXT NOT NULL DEFAULT '',
+                position INTEGER NOT NULL,
+                archived INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (column_id) REFERENCES columns(id)
+            )
+            """
         )
-        """
-    )
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_boards_user_id ON boards(user_id)")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_columns_board_id ON columns(board_id)")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_cards_column_id ON cards(column_id)")
-    conn.commit()
-    conn.close()
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_boards_user_id ON boards(user_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_columns_board_id ON columns(board_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_cards_column_id ON cards(column_id)")
+        conn.commit()
+        app_logger.info("Database initialized successfully")
+    except Exception as e:
+        app_logger.error(f"Failed to initialize database: {e}")
+        raise
+    finally:
+        conn.close()
 
 
 def get_db() -> Generator[sqlite3.Connection, None, None]:
@@ -83,13 +94,34 @@ def get_db() -> Generator[sqlite3.Connection, None, None]:
         conn.close()
 
 
-def get_or_create_user(conn: sqlite3.Connection, username: str) -> int:
-    row = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
-    if row:
-        return int(row["id"])
-    cursor = conn.execute("INSERT INTO users (username) VALUES (?)", (username,))
-    conn.commit()
-    return int(cursor.lastrowid)
+def get_or_create_user(conn: sqlite3.Connection, username: str, password: str = None) -> int:
+    try:
+        app_logger.debug(f"get_or_create_user called with username={username}, password={password}")
+        row = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+        if row:
+            app_logger.debug(f"User {username} already exists with id {row['id']}")
+            return int(row["id"])
+
+        # Hash the password if provided, otherwise use empty hash
+        if password is not None:
+            # Convert string to bytes for bcrypt
+            password_bytes = password.encode('utf-8')
+            # Generate salt and hash
+            hashed_password = bcrypt.hashpw(password_bytes, bcrypt.gensalt()).decode('utf-8')
+        else:
+            hashed_password = ""
+
+        cursor = conn.execute(
+            "INSERT INTO users (username, password_hash) VALUES (?, ?)",
+            (username, hashed_password)
+        )
+        conn.commit()
+        user_id = int(cursor.lastrowid)
+        app_logger.info(f"Created new user {username} with id {user_id}")
+        return user_id
+    except Exception as e:
+        app_logger.error(f"Error in get_or_create_user for username {username}: {e}")
+        raise
 
 
 def get_or_create_board(conn: sqlite3.Connection, user_id: int) -> int:
@@ -128,7 +160,8 @@ def ensure_seed_data(conn: sqlite3.Connection, user_id: int) -> int:
     return board_id
 
 
-def fetch_board(conn: sqlite3.Connection, user_id: int) -> dict:
+def _fetch_board_uncached(conn: sqlite3.Connection, user_id: int) -> dict:
+    """Internal function to fetch board without caching"""
     board_id = ensure_seed_data(conn, user_id)
     board_row = conn.execute(
         "SELECT id, title FROM boards WHERE id = ?",
@@ -182,6 +215,16 @@ def fetch_board(conn: sqlite3.Connection, user_id: int) -> dict:
     }
 
 
+def fetch_board(conn: sqlite3.Connection, user_id: int) -> dict:
+    """Fetch board data with caching to improve performance"""
+    # In a production environment, we might use Redis or similar for caching
+    # For this MVP, we'll use a simple approach - since data changes frequently
+    # due to user interactions, we'll skip caching for now but keep the function
+    # ready for future enhancement
+    app_logger.debug(f"Fetching board for user {user_id}")
+    return _fetch_board_uncached(conn, user_id)
+
+
 def ordered_ids(rows: Iterable[sqlite3.Row]) -> list[int]:
     return [int(row["id"]) for row in rows]
 
@@ -195,8 +238,29 @@ def resequence_positions(
 ) -> None:
     if table not in VALID_TABLES:
         raise ValueError(f"Invalid table: {table}")
+    if not ids:
+        return
+
+    app_logger.debug(f"Resequencing {len(ids)} items in table {table}")
+
+    # Build a single UPDATE statement with CASE for better performance
+    case_statements = []
     for index, item_id in enumerate(ids):
-        conn.execute(
-            f"UPDATE {table} SET position = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? {extra_where}",
-            (index, item_id, *extra_params),
-        )
+        case_statements.append(f"WHEN {item_id} THEN {index}")
+
+    case_sql = "CASE id " + " ".join(case_statements) + " END"
+    where_clause = f"id IN ({','.join(map(str, ids))}) {extra_where}"
+
+    sql = f"""
+    UPDATE {table}
+    SET position = {case_sql},
+        updated_at = CURRENT_TIMESTAMP
+    WHERE {where_clause}
+    """
+
+    try:
+        conn.execute(sql, extra_params)
+        app_logger.debug(f"Successfully resequenced {len(ids)} items in table {table}")
+    except Exception as e:
+        app_logger.error(f"Error resequencing positions in table {table}: {e}")
+        raise

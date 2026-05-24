@@ -9,6 +9,8 @@ from app.database import (
     ordered_ids,
     resequence_positions,
 )
+from app.config import DEFAULT_PASSWORD, DEFAULT_USER
+from fastapi import Request
 from app.dependencies import get_db, get_username
 from app.models import CardCreate, CardUpdate, ColumnCreate, ColumnUpdate
 
@@ -20,7 +22,7 @@ def get_board(
     username: str = Depends(get_username),
     conn: sqlite3.Connection = Depends(get_db),
 ) -> dict:
-    user_id = get_or_create_user(conn, username)
+    user_id = get_or_create_user(conn, username, DEFAULT_PASSWORD if username == DEFAULT_USER else None)
     return fetch_board(conn, user_id)
 
 
