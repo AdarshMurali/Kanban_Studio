@@ -79,6 +79,12 @@ def init_db() -> None:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_cards_column_id ON cards(column_id)")
         conn.commit()
         app_logger.info("Database initialized successfully")
+
+        # Create default user for backward compatibility
+        from app.config import DEFAULT_USER, DEFAULT_PASSWORD
+        get_or_create_user(conn, DEFAULT_USER, DEFAULT_PASSWORD)
+        conn.commit()
+        app_logger.info(f"Ensured default user '{DEFAULT_USER}' exists")
     except Exception as e:
         app_logger.error(f"Failed to initialize database: {e}")
         raise
@@ -92,6 +98,18 @@ def get_db() -> Generator[sqlite3.Connection, None, None]:
         yield conn
     finally:
         conn.close()
+
+
+def verify_password(password: str, password_hash: str) -> bool:
+    """Verify a password against its hash using bcrypt"""
+    if not password_hash:  # Empty hash means no password set
+        return not password  # Only empty password matches empty hash
+    try:
+        password_bytes = password.encode('utf-8')
+        hash_bytes = password_hash.encode('utf-8')
+        return bcrypt.checkpw(password_bytes, hash_bytes)
+    except Exception:
+        return False
 
 
 def get_or_create_user(conn: sqlite3.Connection, username: str, password: str = None) -> int:

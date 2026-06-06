@@ -1,6 +1,6 @@
 import sqlite3
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.ai import apply_actions, build_structured_messages, call_openrouter, parse_structured_output
 from app.database import fetch_board, get_or_create_user
@@ -17,7 +17,17 @@ def chat(
     username: str = Depends(get_username),
     conn: sqlite3.Connection = Depends(get_db),
 ) -> ChatResponse:
-    user_id = get_or_create_user(conn, username, DEFAULT_PASSWORD if username == DEFAULT_USER else None)
+    # For backward compatibility, handle default user specially
+    from app.config import DEFAULT_USER, DEFAULT_PASSWORD
+    if username == DEFAULT_USER:
+        # For default user, ensure they exist with the default password
+        user_id = get_or_create_user(conn, username, DEFAULT_PASSWORD)
+    else:
+        # For all other users, they must be registered via /api/auth/register
+        user_row = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+        if not user_row:
+            raise HTTPException(status_code=404, detail="User not found")
+        user_id = int(user_row["id"])
     board = fetch_board(conn, user_id)
     messages = build_structured_messages(board, payload.history, payload.message)
     content, model = call_openrouter(messages)

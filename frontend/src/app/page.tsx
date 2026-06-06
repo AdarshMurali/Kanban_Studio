@@ -33,6 +33,8 @@ export default function Home() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatError, setChatError] = useState<string | null>(null);
   const [isChatSending, setIsChatSending] = useState(false);
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [registerError, setRegisterError] = useState<string | null>(null);
 
   const refreshBoard = useCallback(async () => {
     setIsLoading(true);
@@ -60,23 +62,85 @@ export default function Home() {
     []
   );
 
-  const handleLogin = (event: FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const username = String(formData.get("username") || "").trim();
     const password = String(formData.get("password") || "").trim();
 
-    // For MVP, we'll accept any non-empty credentials and let the backend handle validation
-    // In a real implementation, this would call an authentication endpoint
-    if (username && password) {
+    if (!username || !password) {
+      setError("Please enter both username and password.");
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Call backend login endpoint
+      const response = await fetch(`/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Invalid username or password');
+      }
+
+      // Login successful
       setUsername(username);
       setIsAuthenticated(true);
       setError(null);
       event.currentTarget.reset();
+    } catch (err) {
+      if (process.env.NODE_ENV === "development") console.error(err);
+      setError('Invalid username or password');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegister = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const username = String(formData.get("username") || "").trim();
+    const password = String(formData.get("password") || "").trim();
+
+    if (!username || !password) {
+      setRegisterError("Please enter both username and password.");
       return;
     }
 
-    setError("Please enter both username and password.");
+    setIsLoading(true);
+    setRegisterError(null);
+
+    try {
+      // Call backend registration endpoint
+      const response = await fetch(`/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Registration failed');
+      }
+
+      // Registration successful - switch to login mode
+      setIsRegisterMode(false);
+      setRegisterError(null);
+      event.currentTarget.reset();
+      setError(`Registration successful! Please login with your new account.`);
+    } catch (err) {
+      if (process.env.NODE_ENV === "development") console.error(err);
+      const message = err instanceof Error ? err.message : 'Registration failed';
+      setRegisterError(message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleLogout = () => {
@@ -228,34 +292,92 @@ export default function Home() {
               Project Management MVP
             </p>
             <h1 className="mt-3 font-display text-3xl font-semibold text-[var(--navy-dark)]">
-              Welcome back
+              {isRegisterMode ? "Create Account" : "Welcome back"}
             </h1>
             <p className="mt-3 text-sm leading-6 text-[var(--gray-text)]">
-              {welcomeCopy}
+              {isRegisterMode ? "Join Kanban Studio to get started" : welcomeCopy}
             </p>
 
-            <form onSubmit={handleLogin} className="mt-6 space-y-4">
-              <div>
-                <label
-                  htmlFor="username"
-                  className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--gray-text)]"
+            {isRegisterMode ? (
+              <form onSubmit={handleRegister} className="mt-6 space-y-4">
+                <div>
+                  <label
+                    htmlFor="username"
+                    className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--gray-text)]"
+                  >
+                    Username
+                  </label>
+                  <input
+                    id="username"
+                    name="username"
+                    placeholder="Choose a username"
+                    aria-label="Username"
+                    className="mt-2 w-full rounded-xl border border-[var(--stroke)] bg-white px-3 py-2 text-sm font-medium text-[var(--navy-dark)] outline-none transition focus:border-[var(--primary-blue)]"
+                    required
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="password"
+                    className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--gray-text)]"
+                  >
+                    Password
+                  </label>
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    placeholder="Choose a password"
+                    aria-label="Password"
+                    className="mt-2 w-full rounded-xl border border-[var(--stroke)] bg-white px-3 py-2 text-sm font-medium text-[var(--navy-dark)] outline-none transition focus:border-[var(--primary-blue)]"
+                    required
+                  />
+                </div>
+                {registerError ? (
+                  <p className="text-sm font-semibold text-[var(--secondary-purple)]">
+                    {registerError}
+                  </p>
+                ) : null}
+                <button
+                  type="submit"
+                  className="w-full rounded-full bg-[var(--secondary-purple)] px-4 py-3 text-xs font-semibold uppercase tracking-[0.25em] text-white transition hover:brightness-110"
                 >
-                  Username
-                </label>
-                <input
-                  id="username"
-                  name="username"
-                  placeholder="user"
-                  aria-label="Username"
-                  className="mt-2 w-full rounded-xl border border-[var(--stroke)] bg-white px-3 py-2 text-sm font-medium text-[var(--navy-dark)] outline-none transition focus:border-[var(--primary-blue)]"
-                  required
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="password"
-                  className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--gray-text)]"
-                >
+                  Create Account
+                </button>
+                <p className="mt-3 text-xs text-[var(--gray-text)] text-center">
+                  Already have an account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setIsRegisterMode(false)}
+                    className="text-[var(--primary-blue)] hover:underline font-medium p-0"
+                  >
+                    Sign in
+                  </button>
+                </p>
+              </form>
+            ) : (
+              <form onSubmit={handleLogin} className="mt-6 space-y-4">
+                <div>
+                  <label
+                    htmlFor="username"
+                    className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--gray-text)]"
+                  >
+                    Username
+                  </label>
+                  <input
+                    id="username"
+                    name="username"
+                    placeholder="user"
+                    aria-label="Username"
+                    className="mt-2 w-full rounded-xl border border-[var(--stroke)] bg-white px-3 py-2 text-sm font-medium text-[var(--navy-dark)] outline-none transition focus:border-[var(--primary-blue)]"
+                    required
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="password"
+                    className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--gray-text)]"
+                  >
                   Password
                 </label>
                 <input
@@ -279,10 +401,18 @@ export default function Home() {
               >
                 Sign in
               </button>
-              <p className="text-xs text-[var(--gray-text)]">
-                Enter any username and password to continue
+              <p className="mt-3 text-xs text-[var(--gray-text)] text-center">
+                Don't have an account?{" "}
+                <button
+                  type="button"
+                  onClick={() => setIsRegisterMode(true)}
+                  className="text-[var(--primary-blue)] hover:underline font-medium p-0"
+                >
+                  Sign up
+                </button>
               </p>
             </form>
+          )}
           </section>
         </main>
       </div>

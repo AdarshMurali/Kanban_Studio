@@ -22,7 +22,17 @@ def get_board(
     username: str = Depends(get_username),
     conn: sqlite3.Connection = Depends(get_db),
 ) -> dict:
-    user_id = get_or_create_user(conn, username, DEFAULT_PASSWORD if username == DEFAULT_USER else None)
+    # For backward compatibility, handle default user specially
+    from app.config import DEFAULT_USER, DEFAULT_PASSWORD
+    if username == DEFAULT_USER:
+        # For default user, ensure they exist with the default password
+        user_id = get_or_create_user(conn, username, DEFAULT_PASSWORD)
+    else:
+        # For all other users, they must be registered via /api/auth/register
+        user_row = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+        if not user_row:
+            raise HTTPException(status_code=404, detail="User not found")
+        user_id = int(user_row["id"])
     return fetch_board(conn, user_id)
 
 
@@ -32,7 +42,17 @@ def create_column(
     username: str = Depends(get_username),
     conn: sqlite3.Connection = Depends(get_db),
 ) -> dict:
-    user_id = get_or_create_user(conn, username)
+    # For backward compatibility, handle default user specially
+    from app.config import DEFAULT_USER, DEFAULT_PASSWORD
+    if username == DEFAULT_USER:
+        # For default user, ensure they exist with the default password
+        user_id = get_or_create_user(conn, username, DEFAULT_PASSWORD)
+    else:
+        # For all other users, they must be registered via /api/auth/register
+        user_row = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+        if not user_row:
+            raise HTTPException(status_code=404, detail="User not found")
+        user_id = int(user_row["id"])
     board_id = get_or_create_board(conn, user_id)
 
     columns = conn.execute(
@@ -66,7 +86,17 @@ def update_column(
     username: str = Depends(get_username),
     conn: sqlite3.Connection = Depends(get_db),
 ) -> dict:
-    user_id = get_or_create_user(conn, username)
+    # For backward compatibility, handle default user specially
+    from app.config import DEFAULT_USER, DEFAULT_PASSWORD
+    if username == DEFAULT_USER:
+        # For default user, ensure they exist with the default password
+        user_id = get_or_create_user(conn, username, DEFAULT_PASSWORD)
+    else:
+        # For all other users, they must be registered via /api/auth/register
+        user_row = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+        if not user_row:
+            raise HTTPException(status_code=404, detail="User not found")
+        user_id = int(user_row["id"])
     board_id = get_or_create_board(conn, user_id)
 
     column = conn.execute(
@@ -104,7 +134,17 @@ def delete_column(
     username: str = Depends(get_username),
     conn: sqlite3.Connection = Depends(get_db),
 ) -> dict:
-    user_id = get_or_create_user(conn, username)
+    # For backward compatibility, handle default user specially
+    from app.config import DEFAULT_USER, DEFAULT_PASSWORD
+    if username == DEFAULT_USER:
+        # For default user, ensure they exist with the default password
+        user_id = get_or_create_user(conn, username, DEFAULT_PASSWORD)
+    else:
+        # For all other users, they must be registered via /api/auth/register
+        user_row = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+        if not user_row:
+            raise HTTPException(status_code=404, detail="User not found")
+        user_id = int(user_row["id"])
     board_id = get_or_create_board(conn, user_id)
 
     column = conn.execute(
@@ -133,7 +173,17 @@ def create_card(
     username: str = Depends(get_username),
     conn: sqlite3.Connection = Depends(get_db),
 ) -> dict:
-    user_id = get_or_create_user(conn, username)
+    # For backward compatibility, handle default user specially
+    from app.config import DEFAULT_USER, DEFAULT_PASSWORD
+    if username == DEFAULT_USER:
+        # For default user, ensure they exist with the default password
+        user_id = get_or_create_user(conn, username, DEFAULT_PASSWORD)
+    else:
+        # For all other users, they must be registered via /api/auth/register
+        user_row = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+        if not user_row:
+            raise HTTPException(status_code=404, detail="User not found")
+        user_id = int(user_row["id"])
     board_id = get_or_create_board(conn, user_id)
 
     column = conn.execute(
@@ -174,7 +224,17 @@ def update_card(
     username: str = Depends(get_username),
     conn: sqlite3.Connection = Depends(get_db),
 ) -> dict:
-    user_id = get_or_create_user(conn, username)
+    # For backward compatibility, handle default user specially
+    from app.config import DEFAULT_USER, DEFAULT_PASSWORD
+    if username == DEFAULT_USER:
+        # For default user, ensure they exist with the default password
+        user_id = get_or_create_user(conn, username, DEFAULT_PASSWORD)
+    else:
+        # For all other users, they must be registered via /api/auth/register
+        user_row = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+        if not user_row:
+            raise HTTPException(status_code=404, detail="User not found")
+        user_id = int(user_row["id"])
     board_id = get_or_create_board(conn, user_id)
 
     card = conn.execute(
@@ -251,7 +311,17 @@ def delete_card(
     username: str = Depends(get_username),
     conn: sqlite3.Connection = Depends(get_db),
 ) -> dict:
-    user_id = get_or_create_user(conn, username)
+    # For backward compatibility, handle default user specially
+    from app.config import DEFAULT_USER, DEFAULT_PASSWORD
+    if username == DEFAULT_USER:
+        # For default user, ensure they exist with the default password
+        user_id = get_or_create_user(conn, username, DEFAULT_PASSWORD)
+    else:
+        # For all other users, they must be registered via /api/auth/register
+        user_row = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+        if not user_row:
+            raise HTTPException(status_code=404, detail="User not found")
+        user_id = int(user_row["id"])
     board_id = get_or_create_board(conn, user_id)
 
     card = conn.execute(
