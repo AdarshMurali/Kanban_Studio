@@ -13,4 +13,4 @@ try {
     # Container doesn't exist, which is fine
 }
 
-docker run --name $appName --env-file "$rootDir\.env" -p 8000:8000 $imageName
+docker run --name $appName --env-file "$rootDir\.env" -p 8000:8000 -v "${rootDir}/backend/data:/app/backend/data" $imageName
