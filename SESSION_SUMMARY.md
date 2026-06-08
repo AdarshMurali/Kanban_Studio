@@ -70,6 +70,35 @@ curl -X GET http://localhost:8000/api/board \
 3. Implement session tokens instead of header-based auth for production
 4. Add UI improvements (validation, better error messages)
 
+## 🔧 Critical Persistence Fix Applied
+**Problem Identified**: User data was lost after service restart due to Docker containers running without volume mounts, making the filesystem ephemeral.
+
+**Fix Applied**: Added Docker volume mounts to all startup scripts to persist the database:
+- `scripts/start-windows.ps1`
+- `scripts/start-linux.sh` 
+- `scripts/start-mac.sh`
+
+**Change Made**:
+```diff
+- docker run --name $appName --env-file "$rootDir\.env" -p 8000:8000 $imageName
++ docker run --name $appName --env-file "$rootDir\.env" -p 8000:8000 -v "${rootDir}/backend/data:/app/backend/data" $imageName
+```
+
+**What This Does**:
+- **Host path**: `${rootDir}/backend/data` - Persists on your machine  
+- **Container path**: `/app/backend/data` - Where the application stores its data
+- **Result**: User data survives container removal/recreation
+
+**Expected Behavior After Fix**:
+1. Register a user and login
+2. Stop the service using the stop scripts
+3. Start the service again using the start scripts
+4. Login with the same credentials - it will work! ✅
+
+**Where Data Is Stored**:
+After applying this fix, your permanent user data will be stored in:
+`C:\Agentic_AI\Kanban_Login\Kanban_Studio/backend/data/pm.db`
+
 ## Session Saved
 This session was saved to allow continuation of work on the Kanban Studio multi-user implementation.
-All core multi-user functionality is now implemented and verified.
+All core multi-user functionality is now implemented, verified, and made persistent across service restarts.
